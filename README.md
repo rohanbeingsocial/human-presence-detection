@@ -139,9 +139,9 @@ random resets.
 ### Flashing the ESP32
 
 1. Arduino IDE → Boards Manager → install **esp32 by Espressif** (3.x).
-2. Open `esp32_bridge/esp32_bridge.ino` and fill in `WIFI_SSID` and
-   `WIFI_PASSWORD` at the top. Left empty, the ESP32 just starts its own
-   network (below).
+2. Open `esp32_bridge/esp32_bridge.ino`. The hotspot works as is. Optionally
+   put a home WiFi in `WIFI_SSID` / `WIFI_PASSWORD` at the top (see below),
+   or leave them empty.
 3. Board: **ESP32 Dev Module**. Upload. No extra libraries needed.
 4. Open the ESP32's Serial Monitor at **115200** baud. It prints the address
    to open, then echoes every line it receives from the Uno, which is the
@@ -149,21 +149,27 @@ random resets.
 
 ### Opening the dashboard
 
-Laptop on the same WiFi as the ESP32, then open **http://sensors.local** (or
-the IP the Serial Monitor printed). It connects by itself.
+The ESP32 runs its **own WiFi hotspot all the time**, so it works anywhere,
+college included, with no router or WiFi password to change:
 
-**On a phone:** connect to the same WiFi (not mobile data) and type the full
-address including `http://`, e.g. `http://192.168.1.11`. Without the `http://`
-Safari may search the web for it instead. Android doesn't always resolve
-`.local` names, so use the IP there. If the PC can open it but the phone
-can't, the router is probably isolating WiFi devices from each other: look for
-"AP isolation" / "client isolation" in its settings and turn it off.
+1. On your phone or laptop, join WiFi **`SensorDashboard`** (password
+   `sensors123`).
+2. Open **http://192.168.4.1**. Type the `http://`, or Safari may search the
+   web instead. It connects by itself.
 
-If the ESP32 can't join your WiFi within 15 s it **creates its own network**
-called `SensorDashboard` (password `sensors123`). Join that from the laptop and
-open **http://192.168.4.1**. Use this for demos: college and office WiFi often
-block devices from talking to each other, and the ESP32 only sees 2.4 GHz
-networks.
+The hotspot has no internet, so the phone may warn about that. Choose to stay
+connected. On Android, if the page won't load, turn off mobile data: Android
+otherwise sends the request over mobile data, where the ESP32 doesn't exist.
+
+**Home WiFi as well:** if the network in `WIFI_SSID` is in range at power-up,
+the ESP32 joins it too. Then a PC on that router (even a wired one with no
+WiFi card) can open **http://sensors.local** or the IP the Serial Monitor
+prints. If it isn't found within 10 s (e.g. at college), the ESP32 stops
+looking and runs as hotspot only.
+
+**No WiFi at all:** plug the ESP32 into the PC, open the GitHub Pages
+dashboard, pick **115200** baud, and connect to the ESP32's COM port. It
+echoes the Uno's readings over USB.
 
 ### After editing index.html
 

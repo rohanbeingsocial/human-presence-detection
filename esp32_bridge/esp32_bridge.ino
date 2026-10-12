@@ -49,21 +49,22 @@
 // SETTINGS - edit these
 // =====================================================
 
-// Your WiFi name and password. ESP32 only sees 2.4 GHz networks.
-// Left empty, it skips straight to its own network (AP_SSID below).
-const char* WIFI_SSID = "GoldCat";
-const char* WIFI_PASSWORD = "1234qwer.";
-
-// Dashboard address once joined: http://sensors.local
-const char* HOSTNAME = "sensors";
-
-// If the WiFi above can't be joined within WIFI_TIMEOUT_MS, the ESP32
-// starts its own network instead. Join it from the laptop and open
-// http://192.168.4.1 - no router needed, handy for demos.
+// The ESP32's own hotspot. Always on, so it works anywhere: join it
+// from a phone or laptop and open http://192.168.4.1
 const char* AP_SSID = "SensorDashboard";
 const char* AP_PASSWORD = "sensors123";  // 8+ characters
 
-#define WIFI_TIMEOUT_MS 15000
+// Optional home WiFi, joined as well if it's in range at power-up.
+// It lets a PC with no WiFi card reach the dashboard through the
+// router. Not found (e.g. at college) means hotspot only. Leave empty
+// to skip. ESP32 only sees 2.4 GHz networks.
+const char* WIFI_SSID = "GoldCat";
+const char* WIFI_PASSWORD = "1234qwer.";
+
+// Also reachable as http://sensors.local
+const char* HOSTNAME = "sensors";
+
+#define WIFI_TIMEOUT_MS 10000
 
 // =====================================================
 // UNO LINK
@@ -84,7 +85,7 @@ size_t lineLen = 0;
 // =====================================================
 
 #define STREAM_PORT 81
-#define MAX_STREAM_CLIENTS 4
+#define MAX_STREAM_CLIENTS 8   // one per open dashboard tab
 
 WebServer web(80);
 NetworkServer streamServer(STREAM_PORT);
@@ -148,17 +149,28 @@ void loop() {
 
 void startWifi() {
 
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setHostname(HOSTNAME);
+
+  // Channel 1, visible, up to 8 devices (the ESP32 default is 4).
+  WiFi.softAP(AP_SSID, AP_PASSWORD, 1, 0, 8);
+
+  Serial.print(F("Hotspot \""));
+  Serial.print(AP_SSID);
+  Serial.print(F("\" (password "));
+  Serial.print(AP_PASSWORD);
+  Serial.println(F(") is up."));
+  Serial.print(F("  Join it, then open http://"));
+  Serial.println(WiFi.softAPIP());
+
   if (strlen(WIFI_SSID) == 0) {
-    Serial.println(F("WIFI_SSID is empty, so not joining any WiFi."));
-    startOwnNetwork();
+    WiFi.mode(WIFI_AP);
     return;
   }
 
-  WiFi.mode(WIFI_STA);
-  WiFi.setHostname(HOSTNAME);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  Serial.print(F("Joining WiFi \""));
+  Serial.print(F("Looking for home WiFi \""));
   Serial.print(WIFI_SSID);
   Serial.print(F("\" "));
 
@@ -174,7 +186,7 @@ void startWifi() {
   if (WiFi.status() == WL_CONNECTED) {
 
     // The ESP32 reconnects on its own if this network drops later.
-    Serial.println(F("Connected. Open the dashboard at:"));
+    Serial.println(F("Also joined home WiFi. From the router side open:"));
     Serial.print(F("  http://"));
     Serial.print(HOSTNAME);
     Serial.println(F(".local"));
@@ -183,26 +195,11 @@ void startWifi() {
     return;
   }
 
-  Serial.println(F("Could not join. Check WIFI_SSID / WIFI_PASSWORD, and that the network is 2.4 GHz."));
-
-  WiFi.disconnect(true);
-  startOwnNetwork();
-}
-
-void startOwnNetwork() {
-
-  Serial.println(F("Starting own network instead."));
-
+  // Stop looking: the ESP32's background retries hop channels, which
+  // would keep knocking hotspot users off.
+  Serial.println(F("Home WiFi not found. Running as hotspot only."));
+  WiFi.disconnect();
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
-
-  Serial.print(F("  Join WiFi \""));
-  Serial.print(AP_SSID);
-  Serial.print(F("\" (password "));
-  Serial.print(AP_PASSWORD);
-  Serial.println(F(")"));
-  Serial.print(F("  then open http://"));
-  Serial.println(WiFi.softAPIP());
 }
 
 // =====================================================
