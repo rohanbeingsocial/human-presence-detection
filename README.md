@@ -139,14 +139,9 @@ random resets.
 ### Flashing the ESP32
 
 1. Arduino IDE → Boards Manager → install **esp32 by Espressif** (3.x).
-2. Open `esp32_bridge/esp32_bridge.ino`. Add a new tab (the `⋯` menu → New
-   Tab) named `wifi_secrets.h` containing:
-   ```cpp
-   #define WIFI_SSID     "your-wifi-name"
-   #define WIFI_PASSWORD "your-wifi-password"
-   ```
-   Git ignores this file, so your password stays off GitHub. Skip it and the
-   ESP32 just starts its own network (below).
+2. Open `esp32_bridge/esp32_bridge.ino` and fill in `WIFI_SSID` and
+   `WIFI_PASSWORD` at the top. Left empty, the ESP32 just starts its own
+   network (below).
 3. Board: **ESP32 Dev Module**. Upload. No extra libraries needed.
 4. Open the ESP32's Serial Monitor at **115200** baud. It prints the address
    to open, then echoes every line it receives from the Uno, which is the

@@ -49,20 +49,10 @@
 // SETTINGS - edit these
 // =====================================================
 
-// Your WiFi goes in wifi_secrets.h next to this file. Git ignores
-// that file, so the password never reaches the public repo:
-//
-//   #define WIFI_SSID     "your-wifi-name"
-//   #define WIFI_PASSWORD "your-wifi-password"
-//
-// ESP32 only sees 2.4 GHz networks. Without the file it goes
-// straight to its own network (AP_SSID below).
-#if __has_include("wifi_secrets.h")
-#include "wifi_secrets.h"
-#else
-#define WIFI_SSID ""
-#define WIFI_PASSWORD ""
-#endif
+// Your WiFi name and password. ESP32 only sees 2.4 GHz networks.
+// Left empty, it skips straight to its own network (AP_SSID below).
+const char* WIFI_SSID = "GoldCat";
+const char* WIFI_PASSWORD = "1234qwer.";
 
 // Dashboard address once joined: http://sensors.local
 const char* HOSTNAME = "sensors";
@@ -159,7 +149,7 @@ void loop() {
 void startWifi() {
 
   if (strlen(WIFI_SSID) == 0) {
-    Serial.println(F("No wifi_secrets.h, so not joining any WiFi."));
+    Serial.println(F("WIFI_SSID is empty, so not joining any WiFi."));
     startOwnNetwork();
     return;
   }
@@ -193,7 +183,7 @@ void startWifi() {
     return;
   }
 
-  Serial.println(F("Could not join."));
+  Serial.println(F("Could not join. Check WIFI_SSID / WIFI_PASSWORD, and that the network is 2.4 GHz."));
 
   WiFi.disconnect(true);
   startOwnNetwork();
