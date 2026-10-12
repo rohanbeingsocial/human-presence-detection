@@ -4,6 +4,10 @@
   No LCD. Readings go out over USB serial and are plotted by
   index.html in this same folder (Web Serial API, Chrome/Edge).
 
+  The same text also leaves on pin D1, which the ESP32 in
+  esp32_bridge/ listens to and re-broadcasts over WiFi. Nothing in
+  this sketch is ESP32-specific - see esp32_bridge.ino for wiring.
+
   The output format below is what the dashboard parses. If you change
   the wording of these Serial.print lines, update the parser in
   index.html to match.
@@ -36,6 +40,11 @@
     RST    -> D9
     VCC    -> 3.3V  (NOT 5V - this will destroy the module)
     GND    -> GND
+
+  ESP32 bridge (optional, for WiFi):
+    D1 (TX) -> 10k -> ESP32 RX2, and RX2 -> 10k -> 10k -> GND
+    GND     -> ESP32 GND
+    D0 (RX) -> leave unconnected (keeps uploads working)
 */
 
 #include <SPI.h>

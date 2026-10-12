@@ -276,7 +276,7 @@ details[open] summary::before { content: "▾ "; }
       <span id="status" class="chip"><span class="dot"></span><span id="statusText">Disconnected</span></span>
     </div>
   </header>
-  <p class="sub">Live readings streamed over USB from <code>main.ino</code> — ultrasonic, gas, IR temperature and RFID.</p>
+  <p class="sub" id="sub">Live readings streamed over USB from <code>main.ino</code> — ultrasonic, gas, IR temperature and RFID.</p>
 
   <div id="unsupported" class="banner hidden">
     <strong>This browser can't talk to the Arduino.</strong>
@@ -396,7 +396,7 @@ const MAX_SAMPLES = 5000;
 const samples = [];        // {t, dist, gas, gasD, obj, amb}
 const rfid    = [];        // {t, uid}
 let windowMs  = 300000;
-let port = null, reader = null, pipePromise = null, demoTimer = null;
+let port = null, reader = null, pipePromise = null, demoTimer = null, stream = null;
 
 const SERIES = {
   distance: { css: "--s-distance", name: "Distance", unit: "cm"    },
@@ -518,6 +518,57 @@ async function disconnect() {
 }
 
 /* ============================================================
+   WIFI - ESP32 bridge
+   When the ESP32 serves this page, readings arrive as Server-Sent
+   Events on port 81, one Arduino serial line per event, and go
+   through the same parser as USB. ?esp=<ip> forces this mode, e.g.
+   to test edits from localhost without re-flashing the ESP32.
+   ============================================================ */
+const STREAM_PORT = 81;
+
+function espHost() {
+  const forced = new URLSearchParams(location.search).get("esp");
+  if (forced) return forced;
+  // Plain http from a non-local host can only be the ESP32: GitHub
+  // Pages is https, and local testing is localhost.
+  const local = ["localhost", "127.0.0.1", "[::1]", ""];
+  return location.protocol === "http:" && !local.includes(location.hostname)
+    ? location.hostname : null;
+}
+const ESP_HOST = espHost();
+
+function connectWifi() {
+  if (stream) return disconnectWifi();
+  stopDemo();
+  setStatus("Connecting…", "");
+  $("connect").textContent = "Disconnect";
+  $("connect").classList.remove("primary");
+
+  stream = new EventSource(`http://${ESP_HOST}:${STREAM_PORT}/`);
+  stream.onopen = () => setStatus("Live over WiFi", "live");
+  stream.onmessage = ev => { logRaw(ev.data + "\n"); parseLine(ev.data); };
+  stream.onerror = () => {
+    // CONNECTING means EventSource is already retrying on its own;
+    // CLOSED means it gave up (e.g. the ESP32 refused: too many tabs).
+    if (stream.readyState === EventSource.CONNECTING) {
+      setStatus("Reconnecting…", "err");
+    } else {
+      logRaw("\n[stream closed by ESP32]\n");
+      disconnectWifi();
+      setStatus("Stream refused", "err");
+    }
+  };
+}
+
+function disconnectWifi() {
+  if (stream) stream.close();
+  stream = null;
+  setStatus("Disconnected", "");
+  $("connect").textContent = "Connect ESP32";
+  $("connect").classList.add("primary");
+}
+
+/* ============================================================
    DEMO MODE - lets the page be verified with no hardware attached
    ============================================================ */
 function stopDemo() {
@@ -525,7 +576,7 @@ function stopDemo() {
 }
 function toggleDemo() {
   if (demoTimer) { stopDemo(); setStatus("Disconnected", ""); return; }
-  if (port) return;
+  if (port || stream) return;
   setStatus("Demo mode", "live");
   $("demo").textContent = "Stop demo";
   let k = 0;
@@ -818,7 +869,7 @@ function exportCsv() {
 /* ============================================================
    WIRING
    ============================================================ */
-$("connect").addEventListener("click", connect);
+$("connect").addEventListener("click", ESP_HOST ? connectWifi : connect);
 $("demo").addEventListener("click", toggleDemo);
 $("csv").addEventListener("click", exportCsv);
 
@@ -836,7 +887,12 @@ $("windowSeg").addEventListener("click", ev => {
   renderAll();
 });
 
-if (!("serial" in navigator)) {
+if (ESP_HOST) {
+  // Web Serial and baud rate don't apply over WiFi.
+  $("baud").hidden = true;
+  $("sub").textContent = "Live readings streamed over WiFi from the ESP32 bridge — ultrasonic, gas, IR temperature and RFID.";
+  connectWifi();
+} else if (!("serial" in navigator)) {
   $("unsupported").classList.remove("hidden");
   $("connect").disabled = true;
 }

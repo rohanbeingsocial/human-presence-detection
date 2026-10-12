@@ -84,6 +84,97 @@ Or press **Demo data** on any browser to drive the dashboard with synthetic
 readings and no hardware attached — useful for checking the layout before you
 have the wiring finished.
 
+## WiFi mode (ESP32 bridge)
+
+Adds an ESP32 so the laptop doesn't need a USB cable to the Uno. The Uno
+sketch is unchanged: its `Serial.print` output already appears on pin D1,
+so the ESP32 just listens there and re-broadcasts each line over WiFi.
+
+```
+Uno --D1 (serial)--> ESP32 --WiFi--> browser on any device
+```
+
+The ESP32 also **serves the dashboard itself**. That's not optional: a page
+loaded over HTTPS (GitHub Pages) is blocked from opening a plain-HTTP
+connection to a device on your LAN, so the Pages copy can't reach the ESP32.
+Served from the ESP32 it's the same page, and it works in any browser,
+phones included, since Web Serial isn't involved.
+
+### Wiring
+
+Needs three 10 kΩ resistors.
+
+```
+Uno D1 (TX) ── 10k ──┬── ESP32 RX2 (GPIO16)
+                     │
+                    10k
+                     │
+                    10k
+                     │
+                    GND
+```
+
+| From | To |
+|---|---|
+| Uno D1 (TX) | through the divider above → ESP32 RX2 |
+| Uno GND | ESP32 GND |
+| ESP32 TX2 | nothing — leave it unconnected |
+| Uno D0 (RX) | nothing — leave it unconnected |
+
+The divider drops the Uno's 5 V signal to 5 × 20k / 30k ≈ 3.3 V. **ESP32 pins
+are not 5 V tolerant**, so don't wire D1 straight across. With only two 10k
+(a 1:1 split) you'd get 2.5 V, which is right at the ESP32's threshold and
+will drop bytes. Use all three.
+
+**Why this avoids the D0/D1 conflict:** data only goes Uno → ESP32. D1 is the
+Uno's TX output, so the ESP32 just listens in on what the Uno already sends to
+USB. Uploads and the Serial Monitor keep working. The conflict only happens
+if something *drives* D0, so ESP32 TX2 must stay off Uno D0. No
+`SoftwareSerial` needed.
+
+Power the ESP32 from its own USB cable or phone charger. The Uno's 5 V pin
+can't supply the MQ heater plus the ESP32's WiFi bursts, and you'll get
+random resets.
+
+### Flashing the ESP32
+
+1. Arduino IDE → Boards Manager → install **esp32 by Espressif** (3.x).
+2. Open `esp32_bridge/esp32_bridge.ino`. Add a new tab (the `⋯` menu → New
+   Tab) named `wifi_secrets.h` containing:
+   ```cpp
+   #define WIFI_SSID     "your-wifi-name"
+   #define WIFI_PASSWORD "your-wifi-password"
+   ```
+   Git ignores this file, so your password stays off GitHub. Skip it and the
+   ESP32 just starts its own network (below).
+3. Board: **ESP32 Dev Module**. Upload. No extra libraries needed.
+4. Open the ESP32's Serial Monitor at **115200** baud. It prints the address
+   to open, then echoes every line it receives from the Uno, which is the
+   quickest way to confirm the D1 wire is right.
+
+### Opening the dashboard
+
+Laptop on the same WiFi as the ESP32, then open **http://sensors.local** (or
+the IP the Serial Monitor printed). It connects by itself.
+
+If the ESP32 can't join your WiFi within 15 s it **creates its own network**
+called `SensorDashboard` (password `sensors123`). Join that from the laptop and
+open **http://192.168.4.1**. Use this for demos: college and office WiFi often
+block devices from talking to each other, and the ESP32 only sees 2.4 GHz
+networks.
+
+### After editing index.html
+
+The ESP32 serves a copy compiled into its flash, so regenerate it and
+re-upload:
+
+```bash
+python embed_dashboard.py
+```
+
+To try dashboard edits without re-flashing, serve the folder locally and point
+it at the ESP32: `http://localhost:8000/?esp=192.168.1.50`.
+
 ## Features
 
 - Live stat tiles with sparklines for distance, gas, object and ambient temperature
