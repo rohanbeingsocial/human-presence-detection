@@ -1,4 +1,4 @@
-# Arduino Sensor Dashboard
+# Sensor Dashboard
 
 A single-file live dashboard for the `main.ino` multi-sensor sketch. Reads the
 Arduino's USB serial output directly in the browser and plots it — no server,
@@ -152,6 +152,13 @@ random resets.
 Laptop on the same WiFi as the ESP32, then open **http://sensors.local** (or
 the IP the Serial Monitor printed). It connects by itself.
 
+**On a phone:** connect to the same WiFi (not mobile data) and type the full
+address including `http://`, e.g. `http://192.168.1.11`. Without the `http://`
+Safari may search the web for it instead. Android doesn't always resolve
+`.local` names, so use the IP there. If the PC can open it but the phone
+can't, the router is probably isolating WiFi devices from each other: look for
+"AP isolation" / "client isolation" in its settings and turn it off.
+
 If the ESP32 can't join your WiFi within 15 s it **creates its own network**
 called `SensorDashboard` (password `sensors123`). Join that from the laptop and
 open **http://192.168.4.1**. Use this for demos: college and office WiFi often
@@ -174,7 +181,11 @@ it at the ESP32: `http://localhost:8000/?esp=192.168.1.50`.
 
 - Live stat tiles with sparklines for distance, gas, object and ambient temperature
 - Gas alarm status derived from the MQ digital pin (icon + label, never colour alone)
-- Time-series charts with hover crosshair and tooltip
+- RFID lock (Locked / Unlocked, set on the dashboard) combined with the IR object
+  temperature: above the trigger temperature while **locked** shows **Theft
+  detected**, while **unlocked** shows **Presence detected**. Lock and trigger
+  are remembered per browser.
+- Time-series charts with crosshair and tooltip (hover, or tap on a phone)
 - Time-window filter (1 / 5 / 15 min / all) scoping every chart at once
 - RFID scan log
 - Table view with every numeric reading

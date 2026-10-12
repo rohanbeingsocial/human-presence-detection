@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Arduino Sensor Dashboard</title>
+<title>Sensor Dashboard</title>
 <style>
 /* ============================================================
    TOKENS
@@ -29,6 +29,7 @@
   --st-good:     #0ca30c;
   --st-critical: #d03b3b;
   --st-muted:    #898781;
+  --st-warn:     #c47d0e;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
@@ -126,18 +127,26 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .banner.hidden { display: none; }
 
 /* ============================================================
-   ALERT ROW  (gas digital = status, so icon + label, never colour alone)
+   ALERT ROW  (gas + lock are status, so icon + label, never colour alone)
    ============================================================ */
+.alerts {
+  display: grid; gap: 14px; margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
 .alert {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 11px;
   padding: 12px 16px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface-1);
-  margin-bottom: 20px; font-size: 14px; font-weight: 550;
+  font-size: 14px; font-weight: 550;
 }
 .alert svg { flex: none; }
 .alert.ok       { border-left: 3px solid var(--st-good); }
 .alert.critical { border-left: 3px solid var(--st-critical); }
-.alert .note { font-weight: 400; color: var(--text-secondary); margin-left: auto; font-size: 13px; }
+.alert.muted    { border-left: 3px solid var(--st-muted); }
+.alert.warn     { border-left: 3px solid var(--st-warn); }
+/* Label over note, so a long note wraps under itself on a phone. */
+.alert .text { display: flex; flex-direction: column; gap: 1px; min-width: 0; color: var(--text-primary); }
+.alert .note { font-weight: 400; color: var(--text-secondary); font-size: 13px; }
 
 /* ============================================================
    FILTER ROW - one row, scopes every chart below it
@@ -147,6 +156,14 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   margin-bottom: 16px;
 }
 .filters .label { font-size: 13px; color: var(--text-secondary); margin-right: 2px; }
+.field { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-secondary); }
+.field input {
+  font: inherit; width: 74px; padding: 6px 9px;
+  color: var(--text-primary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+/* iOS zooms the page into any input under 16px. */
+@media (max-width: 600px) { .field input { font-size: 16px; } }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg button { border: none; border-radius: 0; background: var(--surface-1); padding: 7px 14px; }
 .seg button + button { border-left: 1px solid var(--border); }
@@ -202,7 +219,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 
 /* The plot host grows with content so the x-axis band is never clipped. */
 .plot { position: relative; width: 100%; }
-.plot svg { display: block; width: 100%; }
+.plot svg { display: block; width: 100%; touch-action: pan-y; }  /* sideways finger drag scrubs, vertical still scrolls */
 
 .tip {
   position: absolute; pointer-events: none; opacity: 0;
@@ -260,7 +277,7 @@ details[open] summary::before { content: "▾ "; }
 
   <header>
     <div>
-      <h1>Arduino Sensor Dashboard</h1>
+      <h1>Sensor Dashboard</h1>
     </div>
     <div class="controls">
       <select id="baud" aria-label="Baud rate">
@@ -285,13 +302,38 @@ details[open] summary::before { content: "▾ "; }
     You can still press <strong>Demo data</strong> to see the dashboard run.
   </div>
 
-  <div id="alert" class="alert ok">
-    <svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
-      <path id="alertMark" d="M4.7 8.2 6.9 10.4 11.3 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span id="alertText">Air clear</span>
-    <span class="note" id="alertNote">MQ digital output — waiting for data</span>
+  <div class="alerts">
+    <div id="alert" class="alert ok">
+      <svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path id="alertMark" d="M4.7 8.2 6.9 10.4 11.3 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="text">
+        <span id="alertText">Air clear</span>
+        <span class="note" id="alertNote">MQ digital output — waiting for data</span>
+      </div>
+    </div>
+    <div id="security" class="alert muted" style="color:var(--st-muted)">
+      <svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2.8" y="7.2" width="10.4" height="7.3" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path id="lockShackle" d="M5.2 7.2V5a2.8 2.8 0 0 1 5.6 0v2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <div class="text">
+        <span id="securityText">Waiting for temperature</span>
+        <span class="note" id="securityNote">Needs the MLX90614 object reading</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <span class="label">RFID lock</span>
+    <div class="seg" id="lockSeg" role="group" aria-label="RFID lock">
+      <button data-lock="LOCKED"   aria-pressed="true">Locked</button>
+      <button data-lock="UNLOCKED" aria-pressed="false">Unlocked</button>
+    </div>
+    <!-- One label element so the text and its box wrap together on a phone. -->
+    <label class="field" style="margin-left:10px">Trigger above
+      <input id="threshold" type="number" step="0.5" min="0" max="100" inputmode="decimal"> °C</label>
   </div>
 
   <div class="filters">
@@ -396,6 +438,11 @@ const MAX_SAMPLES = 5000;
 const samples = [];        // {t, dist, gas, gasD, obj, amb}
 const rfid    = [];        // {t, uid}
 let windowMs  = 300000;
+
+// RFID lock and heat threshold are set on the dashboard and kept per
+// browser, so a refresh doesn't silently unlock or reset the trigger.
+let lock       = localStorage.getItem("lock") === "UNLOCKED" ? "UNLOCKED" : "LOCKED";
+let thresholdC = parseFloat(localStorage.getItem("thresholdC")) || 34;
 let port = null, reader = null, pipePromise = null, demoTimer = null, stream = null;
 
 const SERIES = {
@@ -601,13 +648,15 @@ function toggleDemo() {
 /* ============================================================
    SCALES
    ============================================================ */
-function niceScale(lo, hi, ticks) {
+// minStep is the axis formatter's resolution: a 0.05 step printed with
+// one decimal would label two gridlines with the same number.
+function niceScale(lo, hi, ticks, minStep = 0) {
   if (!isFinite(lo) || !isFinite(hi)) return { lo: 0, hi: 1, step: 1 };
   if (lo === hi) { lo -= 1; hi += 1; }
   const raw  = (hi - lo) / ticks;
   const mag  = Math.pow(10, Math.floor(Math.log10(raw)));
   const norm = raw / mag;
-  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  const step = Math.max(minStep, (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag);
   return { lo: Math.floor(lo / step) * step, hi: Math.ceil(hi / step) * step, step };
 }
 const hhmmss = d => d.toLocaleTimeString([], { hour12: false });
@@ -622,7 +671,7 @@ const visible = () => {
    Solid hairline grid, 2px marks, direct end-labels in text ink with
    a colour chip carrying identity, crosshair + tooltip on hover.
    ============================================================ */
-function lineChart(host, rows, keys, fmt) {
+function lineChart(host, rows, keys, fmt, minStep) {
   const W = host.clientWidth || 600;
   const H = 210, PL = 46, PR = 62, PT = 12, PB = 30;
   const iw = Math.max(10, W - PL - PR), ih = H - PT - PB;
@@ -647,7 +696,7 @@ function lineChart(host, rows, keys, fmt) {
     const v = r[k]; if (v == null || !isFinite(v)) continue;
     if (v < lo) lo = v; if (v > hi) hi = v;
   }
-  const sc = niceScale(lo, hi, 4);
+  const sc = niceScale(lo, hi, 4, minStep);
   const t0 = pts[0].t.getTime(), t1 = pts[pts.length - 1].t.getTime();
   const span = Math.max(1, t1 - t0);
 
@@ -703,7 +752,10 @@ function lineChart(host, rows, keys, fmt) {
   host.insertBefore(svg, tip);
 
   const cross = svg.querySelector("#cx");
-  svg.addEventListener("mousemove", ev => {
+  const hide  = () => { tip.style.opacity = 0; cross.setAttribute("opacity", 0); };
+  // Pointer events cover mouse, finger and pen. pointerdown makes a
+  // single tap show the readout, which mousemove alone never did.
+  const show = ev => {
     const box = svg.getBoundingClientRect();
     const px  = (ev.clientX - box.left) * (W / box.width);
     if (px < PL || px > PL + iw) { tip.style.opacity = 0; cross.setAttribute("opacity", 0); return; }
@@ -726,8 +778,12 @@ function lineChart(host, rows, keys, fmt) {
     const sx = X(best.t.getTime()) * (box.width / W);
     tip.style.left = Math.min(Math.max(4, sx + 14), box.width - tip.offsetWidth - 4) + "px";
     tip.style.top  = "8px";
-  });
-  svg.addEventListener("mouseleave", () => { tip.style.opacity = 0; cross.setAttribute("opacity", 0); });
+  };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  // A finger "leaves" the moment it lifts, so touch readouts linger.
+  svg.addEventListener("pointerleave", ev => { if (ev.pointerType === "mouse") hide(); });
+  svg.addEventListener("pointerup", ev => { if (ev.pointerType !== "mouse") setTimeout(hide, 2500); });
 }
 
 /* ============================================================
@@ -792,15 +848,16 @@ function renderAll() {
     $("alertMark").setAttribute("d", bad ? "M8 4.4V8.9 M8 11.4v.2" : "M4.7 8.2 6.9 10.4 11.3 6");
     $("alertNote").textContent = "MQ digital output · threshold set by the trimpot on the sensor board";
   }
+  renderSecurity();
 
   sparkKey($("sDist"), rows, "dist", "distance");
   sparkKey($("sGas"),  rows, "gas",  "gas");
   sparkKey($("sObj"),  rows, "obj",  "obj");
   sparkKey($("sAmb"),  rows, "amb",  "amb");
 
-  chartKeys($("pTemp"), rows, [["obj","obj"],["amb","amb"]], f1);
-  chartKeys($("pDist"), rows, [["dist","distance"]], f1);
-  chartKeys($("pGas"),  rows, [["gas","gas"]], f0);
+  chartKeys($("pTemp"), rows, [["obj","obj"],["amb","amb"]], f1, 0.1);
+  chartKeys($("pDist"), rows, [["dist","distance"]], f1, 0.1);
+  chartKeys($("pGas"),  rows, [["gas","gas"]], f0, 1);
 
   renderTable(rows);
 }
@@ -810,13 +867,13 @@ function renderAll() {
 function sparkKey(host, rows, field, role) {
   spark(host, rows.map(r => ({ t: r.t, [role]: r[field] })), role);
 }
-function chartKeys(host, rows, pairs, fmt) {
+function chartKeys(host, rows, pairs, fmt, minStep) {
   const mapped = rows.map(r => {
     const o = { t: r.t };
     for (const [field, role] of pairs) o[role] = r[field];
     return o;
   });
-  lineChart(host, mapped, pairs.map(p => p[1]), fmt);
+  lineChart(host, mapped, pairs.map(p => p[1]), fmt, minStep);
 }
 
 function renderTable(rows) {
@@ -841,6 +898,51 @@ function renderRfid() {
       <td style="font-family:ui-monospace,Consolas,monospace">${r.uid}</td>
       <td>${r.uid.split(/\s+/).length}</td>
     </tr>`).join("");
+}
+
+/* ============================================================
+   SECURITY
+   Body heat on the IR sensor means someone is in front of it.
+   What that means depends on the RFID lock: locked = theft,
+   unlocked = expected presence.
+   ============================================================ */
+const SHACKLE_CLOSED = "M5.2 7.2V5a2.8 2.8 0 0 1 5.6 0v2.2";
+const SHACKLE_OPEN   = "M5.2 7.2V5a2.8 2.8 0 0 1 5.5-.8";
+
+function securityView(objC) {
+  if (objC == null || !isFinite(objC)) {
+    return { cls: "muted", color: "--st-muted", text: "Waiting for temperature", note: "Needs the MLX90614 object reading" };
+  }
+  const hot = objC > thresholdC;
+  const reading = `Object ${objC.toFixed(1)} °C · triggers above ${thresholdC} °C`;
+  if (lock === "LOCKED") {
+    return hot
+      ? { cls: "critical", color: "--st-critical", text: "Theft detected",      note: reading }
+      : { cls: "ok",       color: "--st-good",     text: "Locked · area clear", note: reading };
+  }
+  return hot
+    ? { cls: "warn",  color: "--st-warn",  text: "Presence detected",      note: reading }
+    : { cls: "muted", color: "--st-muted", text: "Unlocked · no presence", note: reading };
+}
+
+function renderSecurity() {
+  const last = samples[samples.length - 1];
+  const v = securityView(last ? last.obj : null);
+  const el = $("security");
+  el.className = "alert " + v.cls;
+  el.style.color = `var(${v.color})`;
+  $("lockShackle").setAttribute("d", lock === "UNLOCKED" ? SHACKLE_OPEN : SHACKLE_CLOSED);
+  $("securityText").textContent = v.text;
+  $("securityNote").textContent = v.note;
+  // Visible from another tab too.
+  document.title = v.cls === "critical" ? "Theft detected · Sensor Dashboard" : "Sensor Dashboard";
+}
+
+function setLock(next) {
+  lock = next;
+  localStorage.setItem("lock", lock);
+  [...$("lockSeg").children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lock === lock)));
+  renderSecurity();
 }
 
 /* ============================================================
@@ -880,6 +982,19 @@ $("theme").addEventListener("click", () => {
   renderAll();
 });
 
+$("lockSeg").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (b) setLock(b.dataset.lock);
+});
+
+$("threshold").value = thresholdC;
+$("threshold").addEventListener("input", ev => {
+  const v = parseFloat(ev.target.value);
+  if (!isFinite(v)) return;   // mid-edit, e.g. an empty box
+  thresholdC = v;
+  localStorage.setItem("thresholdC", String(v));
+  renderSecurity();
+});
+
 $("windowSeg").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   windowMs = parseInt(b.dataset.ms, 10);
@@ -900,6 +1015,7 @@ if (ESP_HOST) {
 addEventListener("resize", () => renderAll());
 renderAll();
 renderRfid();
+setLock(lock);
 </script>
 </body>
 </html>
